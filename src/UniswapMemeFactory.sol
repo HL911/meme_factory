@@ -2,8 +2,8 @@
 pragma solidity ^0.8.0;
 
 import "./UniswapMemeToken.sol";
-import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
-import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
+import "../lib/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
+import "./uniswap-v2-periphery/interfaces/IUniswapV2Router02.sol";
 
 contract UniswapMemeFactory {
     // 项目方地址（收取5%手续费）
