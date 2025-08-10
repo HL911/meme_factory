@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin-upgradeable/contracts/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 import "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 
-contract PermitMemeToken is Initializable, ERC20PermitUpgradeable {
+contract UniswapMemeToken is Initializable, ERC20PermitUpgradeable {
     // 代币元数据（实际存储在代理中）
     address public issuer;          // 发行者地址
     uint256 public maxTotalSupply;  // 最大总供应量（最小单位，已乘以10^18）
@@ -45,7 +45,7 @@ contract PermitMemeToken is Initializable, ERC20PermitUpgradeable {
         mintedAmount = 0;
     }
 
-    // 内部铸造函数（仅工厂可调用）
+    // 内部铸造函数（仅工厂可调用）- 铸造默认数量
     function _mintTokens(address to) external {
         require(to != address(0), "MemeToken: mint to zero address");
         // 校验逻辑（由工厂控制，此处简化）
@@ -54,6 +54,18 @@ contract PermitMemeToken is Initializable, ERC20PermitUpgradeable {
         // 执行铸造
         _mint(to, perMint);
         mintedAmount += perMint;
+    }
+    
+    // 内部铸造函数（仅工厂可调用）- 铸造指定数量
+    function _mintTokens(address to, uint256 amount) external {
+        require(to != address(0), "MemeToken: mint to zero address");
+        require(amount > 0, "MemeToken: amount must be positive");
+        // 校验逻辑（由工厂控制，此处简化）
+        require(mintedAmount + amount <= maxTotalSupply, "MemeToken: total supply reached");
+        
+        // 执行铸造
+        _mint(to, amount);
+        mintedAmount += amount;
     }
     
     // 获取最大总供应量

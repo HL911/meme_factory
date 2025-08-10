@@ -2,8 +2,9 @@
 pragma solidity ^0.8.0;
 
 import "./PermitMemeToken.sol";
+
 contract PermitMemeFactory {
-    // 项目方地址（收取1%手续费）
+    // 项目方地址（收取5%手续费）
     address public immutable projectOwner;
     
     // 代币模板合约（实现合约）
@@ -18,8 +19,8 @@ contract PermitMemeFactory {
     // 事件：代币铸造
     event MemeMinted(address indexed tokenAddr, address indexed buyer, uint256 amount);
 
-    constructor(address _projectOwner) {
-        projectOwner = _projectOwner;
+    constructor() {
+        projectOwner = msg.sender;
         implementation = new PermitMemeToken(); // 部署模板合约
     }
 
@@ -87,8 +88,8 @@ contract PermitMemeFactory {
         token._mintTokens(msg.sender);
         
         // 分配费用（基于实际需要的金额，不是用户发送的金额）
-        uint256 projectFee = requiredPayment / 100; // 1%给项目方
-        uint256 issuerFee = requiredPayment - projectFee; // 99%给发行者
+        uint256 projectFee = requiredPayment / 20; // 5%给项目方
+        uint256 issuerFee = requiredPayment - projectFee; // 95%给发行者
         
         // 转账（使用call确保兼容性）
         (bool projectSuccess, ) = projectOwner.call{value: projectFee}("");

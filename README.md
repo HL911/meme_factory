@@ -1,6 +1,6 @@
 # MemeFactory - 去中心化 Meme 代币工厂
 
-一个基于以太坊的去中心化 Meme 代币创建和交易平台，使用 EIP-1167 最小代理模式实现高效的代币部署。
+一个基于以太坊的去中心化 Meme 代币创建和交易平台，使用 EIP-1167 最小代理模式实现高效的代币部署，并集成 Uniswap V2 实现去中心化交易。
 
 ## 🚀 项目特性
 
@@ -9,22 +9,37 @@
 - **💰 自动费用分配**: 1% 平台费用，99% 发行者收益
 - **🔄 多付自动找零**: 支持用户多付，自动退还多余费用
 - **🛡️ 安全可升级**: 基于 OpenZeppelin Upgradeable 合约
-- **📊 完整测试覆盖**: 25个测试用例，100% 通过率
+- **🔗 Uniswap 集成**: 支持通过 Uniswap V2 进行代币交易
+- **💱 价格查询**: 实时获取代币在 Uniswap 上的交易价格
+- **📊 完整测试覆盖**: 30+个测试用例，全面覆盖各种场景
 
 ## 📋 合约架构
 
 ### MemeFactory.sol
-主工厂合约，负责：
+基础工厂合约，负责：
 - 创建新的 Meme 代币（使用最小代理）
 - 处理代币铸造和费用分配
 - 提供查询接口
 
 ### MemeToken.sol
-代币模板合约，特性：
+基础代币模板合约，特性：
 - 标准 ERC20 功能
 - 可配置的铸造参数
 - 供应量限制
 - 代理模式初始化
+
+### UniswapMemeFactory.sol
+增强版工厂合约，在基础功能上增加：
+- 集成 Uniswap V2 协议
+- 支持代币交易功能 (`buyMeme`)
+- 实时价格查询 (`getAmountOut`)
+- 价格比较功能 (`comparePrices`)
+
+### UniswapMemeToken.sol
+增强版代币模板合约，特性：
+- 继承所有基础 ERC20 功能
+- 优化的初始化流程
+- 与 Uniswap 协议兼容
 
 ## 🛠️ 技术栈
 
@@ -32,6 +47,8 @@
 - **Foundry**: 开发框架
 - **OpenZeppelin**: 安全合约库
 - **EIP-1167**: 最小代理标准
+- **Uniswap V2**: 去中心化交易协议
+- **WETH**: 包装以太坊代币标准
 
 ## 📦 安装和设置
 
@@ -62,14 +79,16 @@ forge test
 
 ## 🎯 使用指南
 
-### 1. 部署工厂合约
+### 基础版本 (MemeFactory)
+
+#### 1. 部署工厂合约
 
 ```solidity
 // 部署时需要指定项目方地址（接收1%费用）
 MemeFactory factory = new MemeFactory(projectOwnerAddress);
 ```
 
-### 2. 创建 Meme 代币
+#### 2. 创建 Meme 代币
 
 ```solidity
 address tokenAddr = factory.deployMeme(
@@ -81,7 +100,7 @@ address tokenAddr = factory.deployMeme(
 );
 ```
 
-### 3. 铸造代币
+#### 3. 铸造代币
 
 ```solidity
 // 查询铸造费用
@@ -89,6 +108,57 @@ uint256 cost = factory.getMintCost(tokenAddr);
 
 // 铸造代币（支持多付找零）
 factory.mintMeme{value: cost}(tokenAddr);
+```
+
+### 增强版本 (UniswapMemeFactory)
+
+#### 1. 部署增强版工厂合约
+
+```solidity
+// 部署时需要指定项目方地址和WETH地址
+UniswapMemeFactory factory = new UniswapMemeFactory(
+    projectOwnerAddress,
+    wethAddress
+);
+```
+
+#### 2. 创建 Meme 代币
+
+```solidity
+address tokenAddr = factory.deployMeme(
+    "MyMeme",           // 代币名称
+    "MEME",             // 代币符号
+    1000000,            // 总供应量
+    1000,               // 每次铸造数量
+    1000000000000000    // 单价 (wei, 建议0.001 ETH)
+);
+```
+
+#### 3. 铸造代币
+
+```solidity
+// 查询铸造费用
+uint256 cost = factory.getMintCost(tokenAddr);
+
+// 铸造代币（支持多付找零）
+factory.mintMeme{value: cost}(tokenAddr);
+```
+
+#### 4. 交易代币 (通过 Uniswap)
+
+```solidity
+// 查询可获得的代币数量
+uint256 amountOut = factory.getAmountOut(tokenAddr, 1 ether);
+
+// 购买代币（需要存在流动性池）
+factory.buyMeme{value: 1 ether}(tokenAddr, amountOut);
+```
+
+#### 5. 价格比较
+
+```solidity
+// 比较铸造价格和市场价格
+(uint256 mintPrice, uint256 marketPrice) = factory.comparePrices(tokenAddr, 1000);
 ```
 
 ## 💰 价格设置建议
@@ -121,7 +191,7 @@ name: "TestMeme"
 symbol: "TEST"
 totalSupply: 1000000
 perMint: 1000
-price: 10000000000000  // 0.00001 ETH
+price: 1000000000000000  // 0.001 ETH (推荐价格)
 ```
 
 ### 铸造代币 (mintMeme)
@@ -135,9 +205,46 @@ price: 10000000000000  // 0.00001 ETH
 2. 将返回的 wei 转换为 ETH
 3. 在 `payableAmount` 中输入 ETH 数量
 
+### 购买代币 (buyMeme) - UniswapMemeFactory 专用
+
+**参数说明：**
+- `tokenAddr`: 代币合约地址 (address)
+- `minAmountOut`: 最少获得的代币数量 (uint256)
+- `payableAmount`: 支付的 ETH 数量
+
+**操作步骤：**
+1. 调用 `getAmountOut(tokenAddr, ethAmount)` 查询可获得的代币数量
+2. 设置 `minAmountOut` 为预期数量的 95%（防止滑点）
+3. 在 `payableAmount` 中输入要支付的 ETH 数量
+4. 调用 `buyMeme` 函数
+
+**示例：**
+```
+tokenAddr: 0x1234...  // 代币合约地址
+minAmountOut: 950     // 最少获得950个代币（假设预期1000个）
+payableAmount: 1      // 支付1 ETH
+```
+
+### 价格查询功能
+
+#### getAmountOut
+查询用指定数量的 ETH 可以购买多少代币：
+```
+tokenAddr: 0x1234...
+ethAmount: 1000000000000000000  // 1 ETH (in wei)
+```
+
+#### comparePrices
+比较铸造价格和市场价格：
+```
+tokenAddr: 0x1234...
+tokenAmount: 1000  // 1000个代币
+```
+返回：`(mintPrice, marketPrice)` 都以 wei 为单位
+
 ## 📊 测试覆盖
 
-项目包含 25 个全面的测试用例：
+项目包含 30+ 个全面的测试用例：
 
 ### MemeFactory 测试 (13个)
 - ✅ 工厂部署测试
@@ -166,6 +273,23 @@ price: 10000000000000  // 0.00001 ETH
 - ✅ 铸造进度测试
 - ✅ 边界情况测试
 - ✅ 辅助函数测试
+
+### UniswapMemeFactory 测试 (6个)
+- ✅ buyMeme 基本验证测试
+- ✅ buyMeme 代币信息测试
+- ✅ buyMeme 工作流程测试
+- ✅ getAmountOut 功能测试
+- ✅ comparePrices 功能测试
+- ✅ Uniswap 集成测试
+
+### 其他专项测试 (10+个)
+- ✅ WETH 集成测试
+- ✅ Uniswap 地址验证测试
+- ✅ 流动性池创建测试
+- ✅ 价格查询测试
+- ✅ 错误处理测试
+- ✅ 边界条件测试
+- ✅ 安全性测试
 
 运行测试：
 ```bash
@@ -230,13 +354,29 @@ forge script script/Deploy.s.sol --rpc-url https://mainnet.infura.io/v3/your_key
 A: 最小代理模式可以大幅降低部署成本，每次部署新代币只需要约 45,000 gas，而不是完整部署的 200,000+ gas。
 
 ### Q: 如何设置合理的代币价格？
-A: 建议根据目标用户群体设置价格。对于大众化的 Meme 代币，建议使用较低价格（0.00001-0.0001 ETH per token）以降低参与门槛。
+A: 建议根据目标用户群体设置价格。对于大众化的 Meme 代币，建议使用较低价格（0.001-0.01 ETH per token）以降低参与门槛。
 
 ### Q: 费用是如何分配的？
 A: 每次铸造的费用中，1% 归平台方，99% 归代币发行者。这个比例在合约中固定，无法修改。
 
 ### Q: 代币铸造完后还能继续铸造吗？
 A: 不能。当代币达到最大供应量后，将无法继续铸造，合约会抛出 "sold out" 错误。
+
+### Q: buyMeme 功能是如何工作的？
+A: buyMeme 功能通过 Uniswap V2 协议实现代币交易。它会查询指定代币在 Uniswap 上的流动性池，并根据当前汇率进行代币交换。需要注意的是，只有在 Uniswap 上存在该代币的流动性池时才能使用此功能。
+
+### Q: 为什么 buyMeme 有时会失败？
+A: buyMeme 失败的常见原因包括：
+- 代币在 Uniswap 上没有流动性池
+- 滑点过大（实际价格与预期价格差异太大）
+- 支付的 ETH 数量不足
+- 网络拥堵导致交易失败
+
+### Q: MemeFactory 和 UniswapMemeFactory 有什么区别？
+A: MemeFactory 是基础版本，只提供代币创建和铸造功能。UniswapMemeFactory 是增强版本，在基础功能上增加了 Uniswap 集成，支持代币交易、价格查询等功能。
+
+### Q: 如何为我的代币创建流动性池？
+A: 需要在 Uniswap 上手动添加流动性。首先铸造一定数量的代币，然后在 Uniswap 界面上创建 ETH/代币 交易对并添加流动性。
 
 ---
 
